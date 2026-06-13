@@ -96,7 +96,7 @@ jobs:
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
         task-definition: aws/task-definition.json
-        service: healthdesk-service
+        service: healthdesk-prod-service
         cluster: healthdesk-production-cluster
         wait-for-service-stability: true
         # Wait up to 10 minutes for rolling stability validation. 
