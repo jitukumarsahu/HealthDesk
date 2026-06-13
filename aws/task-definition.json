@@ -6,6 +6,8 @@
   ],
   "cpu": "1024",
   "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::408945636435:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::408945636435:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "backend",
