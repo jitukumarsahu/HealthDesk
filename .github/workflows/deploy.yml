@@ -106,7 +106,7 @@ jobs:
     - name: Post-Release Health Verification
       run: |
         echo "Running service health checks..."
-        STATUS_CODE=$(curl --write-out "%{http_code}" --silent --output /dev/null "http://${{ secrets.AWS_LOAD_BALANCER_DNS }}/health")
+        STATUS_CODE=$(curl --write-out "%{http_code}" --silent --output /dev/null "http://${{ secrets.AWS_LOAD_BALANCER_DNS }}/")
         if [ "$STATUS_CODE" -ne 200 ]; then
           echo "Health check failed with status $STATUS_CODE. Triggering service rollback..."
           exit 1
