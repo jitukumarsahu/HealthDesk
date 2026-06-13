@@ -1,5 +1,13 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
+
+// Force DNS servers to public DNS (Google & Cloudflare) to resolve MongoDB Atlas SRV records
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (err) {
+  logger.warn('Failed to set custom DNS servers, using default resolver.');
+}
 
 let mongoServer: any = null;
 
