@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAppSelector } from '../../../redux/hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../../services/api';
 import { 
   Calendar, Plus, Clock, AlertCircle, CheckCircle2, 
@@ -15,8 +15,10 @@ const STANDARD_TIMES = [
   '16:00', '16:30', '17:00'
 ];
 
-export default function DoctorSchedulePage() {
+function DoctorSchedulePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
 
   const [activeTab, setActiveTab] = useState<'slots' | 'appointments' | 'patients'>('slots');
@@ -43,6 +45,11 @@ export default function DoctorSchedulePage() {
   // Search/Filters
   const [patientsSearch, setPatientsSearch] = useState('');
   const [selectedPatientHistory, setSelectedPatientHistory] = useState<any | null>(null);
+  
+  // Date & Status Filters
+  const [filterSlotDate, setFilterSlotDate] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -102,6 +109,12 @@ export default function DoctorSchedulePage() {
     }
   }, [isAuthenticated, user, activeTab, router]);
 
+  useEffect(() => {
+    if (tabParam === 'slots' || tabParam === 'appointments' || tabParam === 'patients') {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   // Handle patient search debounce
   useEffect(() => {
     if (activeTab === 'patients' && isAuthenticated) {
@@ -159,6 +172,14 @@ export default function DoctorSchedulePage() {
       setMessage({ type: 'success', text: res.data.message });
       setSelectedTimes([]);
       fetchDoctorSlots();
+      
+      // Dispatch toaster notification
+      window.dispatchEvent(new CustomEvent('app-notification', {
+        detail: {
+          title: 'Slots Generated',
+          message: res.data.message || 'Time slots successfully created.'
+        }
+      }));
     } catch (err: any) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to create slots' });
     } finally {
@@ -189,7 +210,19 @@ export default function DoctorSchedulePage() {
       });
 
       setMessage({ type: 'success', text: res.data.message });
+      setStartDate('');
+      setEndDate('');
+      setStartTime('09:00');
+      setEndTime('17:00');
       fetchDoctorSlots();
+
+      // Dispatch toaster notification
+      window.dispatchEvent(new CustomEvent('app-notification', {
+        detail: {
+          title: 'Range Slots Generated',
+          message: res.data.message || 'Date range time slots successfully created.'
+        }
+      }));
     } catch (err: any) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to generate range slots' });
     } finally {
@@ -215,7 +248,7 @@ export default function DoctorSchedulePage() {
   return (
     <div className="space-y-8">
       {/* Tab Selector */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+      <div className="flex overflow-x-auto whitespace-nowrap border-b border-slate-200 dark:border-slate-800 pb-0.5 scrollbar-none gap-2">
         <button
           onClick={() => { setActiveTab('slots'); setMessage(null); }}
           className={`pb-3 text-sm font-semibold border-b-2 px-4 transition-all cursor-pointer ${
@@ -395,9 +428,32 @@ export default function DoctorSchedulePage() {
 
           {/* Active Slots list */}
           <div className="glass-panel p-6 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 h-fit">
-            <h3 className="text-sm font-bold flex items-center gap-2 mb-4 border-b border-slate-150 dark:border-slate-800 pb-2">
+            <h3 className="text-sm font-bold flex items-center gap-2 mb-2 border-b border-slate-150 dark:border-slate-800 pb-2">
               <Clock className="h-4 w-4 text-indigo-500" /> Active Slots
             </h3>
+            
+            {/* Slot Date Filter */}
+            <div className="mb-4 space-y-1">
+              <label className="text-[10px] font-bold uppercase text-slate-500 block">Filter by Date</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={filterSlotDate}
+                  onChange={(e) => setFilterSlotDate(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 py-1.5 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+                />
+                {filterSlotDate && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterSlotDate('')}
+                    className="text-[10px] text-rose-500 font-semibold hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
             {slotsLoading ? (
               <div className="flex justify-center py-12">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
@@ -406,21 +462,36 @@ export default function DoctorSchedulePage() {
               <p className="text-[11px] text-slate-400 py-8 text-center">No available slots generated yet.</p>
             ) : (
               <div className="max-h-[480px] overflow-y-auto space-y-2 pr-1 flex flex-col gap-1">
-                {existingSlots.slice(0, 30).map((slot) => (
-                  <div 
-                    key={slot._id}
-                    className="p-2.5 rounded-lg border border-slate-200/40 bg-slate-50/50 dark:border-slate-850 dark:bg-slate-950/40 flex justify-between items-center text-[11px]"
-                  >
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{new Date(slot.dateTime).toLocaleDateString()}</p>
-                      <p className="text-slate-400 mt-0.5">{new Date(slot.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                {(() => {
+                  const filtered = existingSlots.filter((slot) => {
+                    if (!filterSlotDate) return true;
+                    const slotDate = new Date(slot.dateTime).toLocaleDateString();
+                    const filterDateObj = new Date(filterSlotDate);
+                    // Standardize filter slot date check by formatting matching strings
+                    const selectedFilterStr = filterDateObj.toLocaleDateString();
+                    return slotDate === selectedFilterStr;
+                  });
+
+                  if (filtered.length === 0) {
+                    return <p className="text-[11px] text-slate-400 py-8 text-center">No slots matching this date.</p>;
+                  }
+
+                  return filtered.slice(0, 30).map((slot) => (
+                    <div 
+                      key={slot._id}
+                      className="p-2.5 rounded-lg border border-slate-200/40 bg-slate-50/50 dark:border-slate-850 dark:bg-slate-950/40 flex justify-between items-center text-[11px]"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-800 dark:text-slate-200">{new Date(slot.dateTime).toLocaleDateString()}</p>
+                        <p className="text-slate-400 mt-0.5">{new Date(slot.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-450">
+                        Open
+                      </span>
                     </div>
-                    <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-450">
-                      Open
-                    </span>
-                  </div>
-                ))}
-                {existingSlots.length > 30 && (
+                  ));
+                })()}
+                {existingSlots.length > 30 && !filterSlotDate && (
                   <p className="text-[10px] text-slate-400 text-center pt-2">Showing next 30 availability slots.</p>
                 )}
               </div>
@@ -434,6 +505,45 @@ export default function DoctorSchedulePage() {
           <h2 className="text-base font-bold flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
             <Clipboard className="h-4 w-4 text-primary" /> Active Bookings Manager
           </h2>
+
+          {/* Appointments Filter Panel */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-slate-50/50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-bold uppercase text-slate-500 block">Filter by Date</label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-950 text-slate-850 dark:text-slate-100"
+              />
+            </div>
+            <div className="w-full sm:w-48 space-y-1">
+              <label className="text-[10px] font-bold uppercase text-slate-500 block">Filter by Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 py-2.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-950 text-slate-700 dark:text-slate-305"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="Rescheduled">Rescheduled</option>
+              </select>
+            </div>
+            {(filterDate || filterStatus !== 'all') && (
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => { setFilterDate(''); setFilterStatus('all'); }}
+                  className="text-xs text-primary font-semibold hover:underline mb-2.5"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -453,12 +563,27 @@ export default function DoctorSchedulePage() {
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto"></div>
                     </td>
                   </tr>
-                ) : appointments.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-400">No appointments scheduled.</td>
-                  </tr>
-                ) : (
-                  appointments.map((appt) => (
+                ) : (() => {
+                  const filtered = appointments.filter((appt) => {
+                    if (filterDate) {
+                      const apptDateStr = new Date(appt.dateTime).toISOString().split('T')[0];
+                      if (apptDateStr !== filterDate) return false;
+                    }
+                    if (filterStatus !== 'all') {
+                      if (appt.status !== filterStatus) return false;
+                    }
+                    return true;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-400">No appointments match your filters.</td>
+                      </tr>
+                    );
+                  }
+
+                  return filtered.map((appt) => (
                     <tr key={appt._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                       <td className="p-4">
                         <div className="font-semibold text-slate-800 dark:text-slate-100">{appt.patientId?.name || 'Unknown Patient'}</div>
@@ -518,7 +643,7 @@ export default function DoctorSchedulePage() {
                       </td>
                     </tr>
                   ))
-                )}
+                })()}
               </tbody>
             </table>
           </div>
@@ -602,6 +727,34 @@ export default function DoctorSchedulePage() {
                   <p className="text-[10px] text-slate-400">{selectedPatientHistory.email}</p>
                 </div>
 
+                {/* Consultation History */}
+                <div className="space-y-3 border-b border-slate-100 dark:border-slate-800/40 pb-4">
+                  <h5 className="font-bold uppercase text-[9px] text-slate-450 tracking-wider">Consultation History & Reasons</h5>
+                  {selectedPatientHistory.appointments && selectedPatientHistory.appointments.length > 0 ? (
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 flex flex-col gap-1">
+                      {selectedPatientHistory.appointments.map((appt: any, idx: number) => (
+                        <div key={idx} className="p-2.5 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/30 dark:border-slate-800/35 rounded-lg text-[11px]">
+                          <div className="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Date: {new Date(appt.dateTime).toLocaleDateString()}</span>
+                            <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-semibold ${
+                              appt.status === 'Confirmed' ? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/25 dark:text-emerald-400' :
+                              appt.status === 'Completed' ? 'bg-blue-100/70 text-blue-800 dark:bg-blue-950/25 dark:text-blue-400' :
+                              appt.status === 'Cancelled' ? 'bg-rose-100/70 text-rose-800 dark:bg-rose-950/25 dark:text-rose-455' :
+                              'bg-amber-100/70 text-amber-800 dark:bg-amber-950/25 dark:text-amber-400'
+                            }`}>{appt.status}</span>
+                          </div>
+                          <div className="mt-1">
+                            <span className="font-semibold text-slate-500">Reason: </span>
+                            <span className="text-slate-700 dark:text-slate-300">{appt.reason || 'No reason provided'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">No appointments history recorded.</p>
+                  )}
+                </div>
+
                 <div className="space-y-3">
                   <h5 className="font-bold uppercase text-[9px] text-slate-450 tracking-wider">Prescription History</h5>
                   
@@ -643,5 +796,17 @@ export default function DoctorSchedulePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DoctorSchedulePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    }>
+      <DoctorSchedulePageContent />
+    </Suspense>
   );
 }

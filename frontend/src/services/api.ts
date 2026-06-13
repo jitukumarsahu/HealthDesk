@@ -111,3 +111,21 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const downloadPrescriptionFile = async (prescriptionId: string) => {
+  try {
+    const response = await api.get(`/prescriptions/${prescriptionId}/download`, {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `prescription-${prescriptionId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+  } catch (err) {
+    console.error('Failed to download PDF:', err);
+    alert('Failed to download prescription PDF. Please try again.');
+  }
+};

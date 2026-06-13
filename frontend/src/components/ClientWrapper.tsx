@@ -6,7 +6,7 @@ import { loginSuccess, logout } from '../redux/slices/authSlice';
 import { useSocket } from '../hooks/useSocket';
 import { api } from '../services/api';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, Bell, Shield, Calendar, FileText, Activity, Moon, Sun, Menu, X, MessageSquare } from 'lucide-react';
 import { 
   fetchNotificationsStart, 
@@ -19,6 +19,7 @@ import {
 export function ClientWrapper({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const pathname = usePathname();
+  const router = useRouter();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const { unreadCount, notifications } = useAppSelector((state) => state.notifications);
   
@@ -166,6 +167,48 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Close notifications on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showNotifications && !target.closest('.notification-container') && !target.closest('.mobile-notification-container')) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.isRead) {
+      await handleMarkRead(notif.id);
+    }
+    setShowNotifications(false);
+    setMobileMenuOpen(false);
+    
+    if (user?.role === 'Doctor') {
+      if (notif.type === 'AppointmentBooked' || notif.type === 'AppointmentCancelled') {
+        router.push('/doctor/schedule?tab=appointments');
+      } else if (notif.type === 'ScheduleUpdated') {
+        router.push('/doctor/schedule?tab=slots');
+      } else {
+        router.push('/');
+      }
+    } else if (user?.role === 'Patient') {
+      if (notif.type === 'AppointmentBooked' || notif.type === 'AppointmentCancelled') {
+        router.push('/');
+      } else if (notif.type === 'PrescriptionCreated') {
+        router.push('/prescriptions');
+      } else {
+        router.push('/');
+      }
+    } else {
+      router.push('/');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
@@ -302,51 +345,51 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                   {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                 </button>
 
-                {/* Notifications Bell */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white animate-pulse">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Notifications Popup */}
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-                      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
-                        <span className="font-semibold text-sm">Notifications</span>
-                        <span onClick={handleMarkAllRead} className="text-xs text-primary cursor-pointer hover:underline">
-                          Mark all read
-                        </span>
-                      </div>
-                      <div className="max-h-64 overflow-y-auto mt-2 flex flex-col gap-1">
-                        {notifications.length === 0 ? (
-                          <div className="text-center py-6 text-xs text-slate-400">No new notifications</div>
-                        ) : (
-                          notifications.slice(0, 5).map((notif) => (
-                            <div 
-                              key={notif.id} 
-                              onClick={() => handleMarkRead(notif.id)}
-                              className={`p-3 rounded-lg cursor-pointer transition-colors ${notif.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'}`}
-                            >
-                              <div className="flex items-start justify-between gap-1">
-                                <h5 className="font-semibold text-xs text-slate-800 dark:text-slate-200">{notif.title}</h5>
-                                {!notif.isRead && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1 shrink-0"></span>}
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">{notif.message}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                 {/* Notifications Bell */}
+                 <div className="relative notification-container">
+                   <button
+                     onClick={() => setShowNotifications(!showNotifications)}
+                     className="relative rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                   >
+                     <Bell className="h-5 w-5" />
+                     {unreadCount > 0 && (
+                       <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white animate-pulse">
+                         {unreadCount}
+                       </span>
+                     )}
+                   </button>
+ 
+                   {/* Notifications Popup */}
+                   {showNotifications && (
+                     <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900 z-50">
+                       <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                         <span className="font-semibold text-sm">Notifications</span>
+                         <span onClick={handleMarkAllRead} className="text-xs text-primary cursor-pointer hover:underline">
+                           Mark all read
+                         </span>
+                       </div>
+                       <div className="max-h-64 overflow-y-auto mt-2 flex flex-col gap-1">
+                         {notifications.length === 0 ? (
+                           <div className="text-center py-6 text-xs text-slate-400">No new notifications</div>
+                         ) : (
+                           notifications.slice(0, 5).map((notif) => (
+                             <div 
+                               key={notif.id} 
+                               onClick={() => handleNotificationClick(notif)}
+                               className={`p-3 rounded-lg cursor-pointer transition-colors ${notif.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'}`}
+                             >
+                               <div className="flex items-start justify-between gap-1">
+                                 <h5 className="font-semibold text-xs text-slate-800 dark:text-slate-200">{notif.title}</h5>
+                                 {!notif.isRead && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1 shrink-0"></span>}
+                               </div>
+                               <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">{notif.message}</p>
+                             </div>
+                           ))
+                         )}
+                       </div>
+                     </div>
+                   )}
+                 </div>
 
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-800"></div>
 
@@ -365,18 +408,66 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile Menu & Theme Controls */}
               <div className="flex md:hidden items-center gap-2">
                 <button
                   onClick={toggleTheme}
                   className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-label="Toggle theme"
                 >
                   {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                 </button>
 
+                {/* Mobile Notifications Bell */}
+                <div className="relative mobile-notification-container">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="relative rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white animate-pulse">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Notifications Popup */}
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900 z-50">
+                      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                        <span className="font-semibold text-sm">Notifications</span>
+                        <span onClick={handleMarkAllRead} className="text-xs text-primary cursor-pointer hover:underline">
+                          Mark all read
+                        </span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto mt-2 flex flex-col gap-1">
+                        {notifications.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-400">No new notifications</div>
+                        ) : (
+                          notifications.slice(0, 5).map((notif) => (
+                            <div 
+                              key={notif.id} 
+                              onClick={() => handleNotificationClick(notif)}
+                              className={`p-3 rounded-lg cursor-pointer transition-colors ${notif.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'}`}
+                            >
+                              <div className="flex items-start justify-between gap-1">
+                                <h5 className="font-semibold text-xs text-slate-800 dark:text-slate-200">{notif.title}</h5>
+                                {!notif.isRead && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1 shrink-0"></span>}
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">{notif.message}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-label="Toggle menu"
                 >
                   {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                 </button>
@@ -386,11 +477,25 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
 
           {/* Mobile Nav Menu */}
           {mobileMenuOpen && (
-            <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-850 dark:bg-slate-900 md:hidden flex flex-col gap-3">
+            <div className="border-b border-slate-200 bg-white/95 px-4 py-4 dark:border-slate-850 dark:bg-slate-900/95 backdrop-blur-md md:hidden flex flex-col gap-3 shadow-xl">
+              {/* User Profile Header */}
+              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800/50 mb-1">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold">{user.name}</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{user.email}</p>
+                  <span className="inline-block rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[9px] font-bold mt-1.5">
+                    {user.role}
+                  </span>
+                </div>
+              </div>
+
               <Link 
                 href="/" 
                 onClick={() => setMobileMenuOpen(false)} 
-                className={`text-sm font-medium py-1 ${isLinkActive('/') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
               >
                 Dashboard
               </Link>
@@ -399,21 +504,21 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                   <Link 
                     href="/appointments/book" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/appointments/book') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/appointments/book') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Book Appointment
                   </Link>
                   <Link 
                     href="/prescriptions" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/prescriptions') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Prescriptions
                   </Link>
                   <Link 
                     href="/chat" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/chat') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Chat
                   </Link>
@@ -424,21 +529,21 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                   <Link 
                     href="/doctor/schedule" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/doctor/schedule') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/doctor/schedule') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Manage Slots
                   </Link>
                   <Link 
                     href="/prescriptions" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/prescriptions') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Create Prescription
                   </Link>
                   <Link 
                     href="/chat" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/chat') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Chat
                   </Link>
@@ -449,23 +554,23 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                   <Link 
                     href="/admin/users" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/admin/users') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/admin/users') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Accounts management
                   </Link>
                   <Link 
                     href="/admin/audit" 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className={`text-sm font-medium py-1 ${isLinkActive('/admin/audit') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                    className={`text-sm font-medium py-2 px-3 rounded-lg transition-colors ${isLinkActive('/admin/audit') ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-350 dark:hover:bg-slate-800/50'}`}
                   >
                     Audit Trails
                   </Link>
                 </>
               )}
-              <div className="h-px bg-slate-150 dark:bg-slate-800 my-1"></div>
+              <div className="h-px bg-slate-150 dark:bg-slate-800 my-2"></div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-sm font-medium text-destructive py-1"
+                className="flex items-center gap-2 text-sm font-medium text-destructive py-2 px-3 rounded-lg hover:bg-destructive/5 transition-colors"
               >
                 <LogOut className="h-4 w-4" /> Logout
               </button>

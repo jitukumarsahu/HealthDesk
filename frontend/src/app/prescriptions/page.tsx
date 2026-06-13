@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../redux/hooks';
 import { useRouter } from 'next/navigation';
-import { api } from '../../services/api';
+import { api, downloadPrescriptionFile } from '../../services/api';
 import Link from 'next/link';
 import { 
   FileText, 
@@ -242,14 +242,12 @@ export default function PrescriptionsPage() {
                   >
                     <Eye className="h-3.5 w-3.5" /> Open
                   </Link>
-                  <a 
-                    href={`http://localhost:5000/api/prescriptions/${presc._id}/download`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 px-3 py-2 text-2xs font-semibold text-emerald-600 dark:text-emerald-400 transition-colors"
+                  <button 
+                    onClick={() => downloadPrescriptionFile(presc._id)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 px-3 py-2 text-2xs font-semibold text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" /> PDF
-                  </a>
+                  </button>
                 </div>
               </div>
             ))}
@@ -324,8 +322,9 @@ export default function PrescriptionsPage() {
 
                 <div className="space-y-3">
                   {medicines.map((med, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
                       <div className="col-span-12 sm:col-span-4">
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Medicine Name</label>
                         <input
                           type="text"
                           required
@@ -337,6 +336,7 @@ export default function PrescriptionsPage() {
                       </div>
                       
                       <div className="col-span-4 sm:col-span-2">
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Dosage</label>
                         <input
                           type="text"
                           required
@@ -348,6 +348,7 @@ export default function PrescriptionsPage() {
                       </div>
 
                       <div className="col-span-4 sm:col-span-3">
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Frequency</label>
                         <input
                           type="text"
                           required
@@ -359,6 +360,7 @@ export default function PrescriptionsPage() {
                       </div>
 
                       <div className="col-span-3 sm:col-span-2">
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Duration</label>
                         <input
                           type="text"
                           required
@@ -369,7 +371,7 @@ export default function PrescriptionsPage() {
                         />
                       </div>
 
-                      <div className="col-span-1 flex justify-center">
+                      <div className="col-span-1 flex justify-center pb-2">
                         <button
                           type="button"
                           disabled={medicines.length === 1}

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppSelector } from '../redux/hooks';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '../services/api';
+import { api, downloadPrescriptionFile } from '../services/api';
 import { 
   Calendar, 
   FileText, 
@@ -345,15 +345,13 @@ export default function DashboardPage() {
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Link>
-                        <a 
-                          href={`http://localhost:5000/api/prescriptions/${presc._id}/download`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg p-2 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-600 dark:text-emerald-450 transition-colors"
+                        <button 
+                          onClick={() => downloadPrescriptionFile(presc._id)}
+                          className="rounded-lg p-2 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-600 dark:text-emerald-450 transition-colors cursor-pointer"
                           title="Download PDF"
                         >
                           <Download className="h-4 w-4" />
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -420,8 +418,10 @@ export default function DashboardPage() {
                                 onClick={() => setSelectedRescheduleSlotId(slot._id)}
                                 className={`py-1.5 px-2 rounded-lg border text-[10px] font-medium transition-all text-center cursor-pointer ${
                                   isSel
-                                    ? 'bg-primary border-primary text-white shadow-sm'
-                                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850'
+                                    ? 'bg-primary border-primary text-white shadow-sm z-10 scale-[1.02]'
+                                    : selectedRescheduleSlotId
+                                      ? 'border-slate-250 dark:border-slate-800 opacity-40 blur-[0.7px] scale-[0.98]'
+                                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850'
                                 }`}
                               >
                                 {tStr}

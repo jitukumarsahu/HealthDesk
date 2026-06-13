@@ -235,8 +235,10 @@ export default function BookAppointmentPage() {
                           onClick={() => { setSelectedSlotId(slot._id); setMessage(null); }}
                           className={`flex items-center justify-center gap-1.5 rounded-lg border p-2.5 text-xs font-semibold transition-all cursor-pointer ${
                             isSelected 
-                              ? 'bg-primary border-primary text-white shadow-md' 
-                              : 'border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-850'
+                              ? 'bg-primary border-primary text-white shadow-md z-10 scale-[1.02]' 
+                              : selectedSlotId
+                                ? 'border-slate-250 dark:border-slate-800 opacity-40 blur-[0.7px] scale-[0.98]'
+                                : 'border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-850'
                           }`}
                         >
                           <Clock className="h-3.5 w-3.5" /> {timeStr}

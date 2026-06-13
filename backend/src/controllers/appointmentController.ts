@@ -543,15 +543,20 @@ export const getDoctorPatients = async (req: AuthenticatedRequest, res: Response
       patientsList = patientsList.filter(p => regex.test(p.name) || regex.test(p.email));
     }
 
-    // 4. For each patient, retrieve their prescription history
+    // 4. For each patient, retrieve their prescription and appointment histories
     const { Prescription } = await import('../models/Prescription.js');
     const populatedPatients = await Promise.all(patientsList.map(async (p) => {
       const prescriptions = await Prescription.find({ patientId: p.id, doctorId })
         .sort({ createdAt: -1 });
+
+      const patientAppointments = await Appointment.find({ patientId: p.id, doctorId })
+        .sort({ dateTime: -1 })
+        .select('dateTime reason status');
         
       return {
         ...p,
-        prescriptions
+        prescriptions,
+        appointments: patientAppointments
       };
     }));
 

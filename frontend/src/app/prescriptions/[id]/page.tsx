@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../../redux/hooks';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '../../../services/api';
+import { api, downloadPrescriptionFile } from '../../../services/api';
 import Link from 'next/link';
 import { FileText, ArrowLeft, Download, Calendar, User, Stethoscope, ChevronRight, ShieldAlert } from 'lucide-react';
 
@@ -79,14 +79,12 @@ export default function PrescriptionDetailsPage() {
               <p className="text-2xs text-slate-400 uppercase tracking-wider font-semibold">Prescription ID: {prescription._id}</p>
             </div>
             
-            <a
-              href={`http://localhost:5000/api/prescriptions/${prescription._id}/download`}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => downloadPrescriptionFile(prescription._id)}
               className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-600 transition-all shadow-md cursor-pointer"
             >
               <Download className="h-4 w-4" /> Download PDF Receipt
-            </a>
+            </button>
           </div>
 
           <div className="p-6 md:p-8 space-y-6">

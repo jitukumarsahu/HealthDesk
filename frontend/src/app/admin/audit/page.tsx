@@ -37,7 +37,7 @@ export default function AdminAuditPage() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'Admin') {
+    if (!isAuthenticated || (user?.role !== 'Admin' && user?.role !== 'SuperAdmin')) {
       router.push('/login');
       return;
     }
@@ -48,7 +48,7 @@ export default function AdminAuditPage() {
     fetchLogs();
   };
 
-  if (!isAuthenticated || user?.role !== 'Admin') {
+  if (!isAuthenticated || (user?.role !== 'Admin' && user?.role !== 'SuperAdmin')) {
     return null;
   }
 
