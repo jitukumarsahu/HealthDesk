@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "backend",
-      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_DEFAULT_REGION>.amazonaws.com/healthdesk-backend:latest",
+      "image": "408945636435.dkr.ecr.ap-south-1.amazonaws.com/healthdesk-backend:latest",
       "cpu": 512,
       "memory": 1024,
       "portMappings": [
@@ -37,29 +37,29 @@
       "secrets": [
         {
           "name": "MONGO_URI",
-          "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/healthdesk/prod/MONGO_URI"
+          "valueFrom": "arn:aws:ssm:ap-south-1:408945636435:parameter/healthdesk/prod/MONGO_URI"
         },
         {
           "name": "JWT_ACCESS_SECRET",
-          "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/healthdesk/prod/JWT_ACCESS_SECRET"
+          "valueFrom": "arn:aws:ssm:ap-south-1:408945636435:parameter/healthdesk/prod/JWT_ACCESS_SECRET"
         },
         {
           "name": "JWT_REFRESH_SECRET",
-          "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/healthdesk/prod/JWT_REFRESH_SECRET"
+          "valueFrom": "arn:aws:ssm:ap-south-1:408945636435:parameter/healthdesk/prod/JWT_REFRESH_SECRET"
         }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/healthdesk-production",
-          "awslogs-region": "<AWS_DEFAULT_REGION>",
+          "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "backend"
         }
       }
     },
     {
       "name": "frontend",
-      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_DEFAULT_REGION>.amazonaws.com/healthdesk-frontend:latest",
+      "image": "408945636435.dkr.ecr.ap-south-1.amazonaws.com/healthdesk-frontend:latest",
       "cpu": 512,
       "memory": 1024,
       "portMappings": [
@@ -88,7 +88,7 @@
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/healthdesk-production",
-          "awslogs-region": "<AWS_DEFAULT_REGION>",
+          "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "frontend"
         }
       }
