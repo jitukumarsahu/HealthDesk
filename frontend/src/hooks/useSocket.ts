@@ -22,7 +22,17 @@ export const useSocket = () => {
       return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+    const getSocketUrl = () => {
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          return 'http://localhost:5000';
+        }
+        return window.location.origin;
+      }
+      return process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+    };
+
+    const socketUrl = getSocketUrl();
     
     // Connect to Socket.io server
     const socket = io(socketUrl, {
