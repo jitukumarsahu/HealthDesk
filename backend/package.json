@@ -4,7 +4,7 @@
   "description": "Backend services for the HealthDesk healthcare platform",
   "main": "dist/server.js",
   "scripts": {
-    "build": "rimraf dist && tsc",
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "dev": "npm run build && npm start",
     "test": "jest --runInBand --detectOpenHandles"

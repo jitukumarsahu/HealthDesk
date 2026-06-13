@@ -5,7 +5,7 @@ import { UnauthorizedError, ForbiddenError } from '../utils/errors.js';
 export interface UserPayload {
   id: string;
   email: string;
-  role: 'Admin' | 'Doctor' | 'Patient';
+  role: 'SuperAdmin' | 'Admin' | 'Doctor' | 'Patient';
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -37,7 +37,7 @@ export const authenticateToken = (
   }
 };
 
-export const authorizeRoles = (...roles: ('Admin' | 'Doctor' | 'Patient')[]) => {
+export const authorizeRoles = (...roles: ('SuperAdmin' | 'Admin' | 'Doctor' | 'Patient')[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       throw new UnauthorizedError('Authentication required');

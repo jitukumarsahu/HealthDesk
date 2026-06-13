@@ -11,7 +11,8 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
-  role: 'Admin' | 'Doctor' | 'Patient';
+  role: 'SuperAdmin' | 'Admin' | 'Doctor' | 'Patient';
+  isActive: boolean;
   refreshToken?: string;
   doctorProfile?: IDoctorProfile;
   createdAt: Date;
@@ -33,9 +34,15 @@ const UserSchema: Schema = new Schema(
     passwordHash: { type: String, required: true },
     role: { 
       type: String, 
-      enum: ['Admin', 'Doctor', 'Patient'], 
+      enum: ['SuperAdmin', 'Admin', 'Doctor', 'Patient'], 
       required: true,
       default: 'Patient'
+    },
+    isActive: { 
+      type: Boolean, 
+      required: true, 
+      default: true,
+      index: true
     },
     refreshToken: { type: String, default: null },
     doctorProfile: {

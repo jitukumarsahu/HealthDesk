@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../../redux/hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../../services/api';
 import { Calendar, User, Clock, Stethoscope, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
 
 export default function BookAppointmentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const doctorIdParam = searchParams.get('doctorId');
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
 
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -35,7 +37,16 @@ export default function BookAppointmentPage() {
       try {
         setLoadingDoctors(true);
         const res = await api.get('/appointments/doctors');
-        setDoctors(res.data.doctors);
+        const docs = res.data.doctors || [];
+        setDoctors(docs);
+
+        // Auto select if doctorId parameter is present
+        if (doctorIdParam && docs.length > 0) {
+          const doc = docs.find((d: any) => d._id === doctorIdParam);
+          if (doc) {
+            setSelectedDoctor(doc);
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch doctors:', err);
       } finally {
@@ -44,7 +55,7 @@ export default function BookAppointmentPage() {
     };
 
     fetchDoctors();
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, doctorIdParam]);
 
   // Load available slots when doctor and date are selected
   useEffect(() => {

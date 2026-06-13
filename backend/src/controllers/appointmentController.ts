@@ -13,26 +13,59 @@ import { AuthenticatedRequest } from '../middleware/auth.js';
  */
 export const createSlots = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { dates, duration = 30 } = req.body; // array of ISO date strings
+    const { type, dates, startDate, endDate, startTime, endTime, slotDuration = 30 } = req.body;
     const doctorId = req.user!.id;
 
-    if (!dates || !Array.isArray(dates) || dates.length === 0) {
-      throw new BadRequestError('An array of dates is required');
+    let slotsToCreate: Date[] = [];
+
+    if (type === 'range' || (startDate && endDate && startTime && endTime)) {
+      if (!startDate || !endDate || !startTime || !endTime) {
+        throw new BadRequestError('startDate, endDate, startTime, and endTime are required for range generation');
+      }
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new BadRequestError('Invalid startDate or endDate format');
+      }
+
+      const [startHour, startMin] = startTime.split(':').map(Number);
+      const [endHour, endMin] = endTime.split(':').map(Number);
+      if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
+        throw new BadRequestError('Invalid startTime or endTime format (use HH:MM)');
+      }
+
+      // Loop through each day from start to end date (inclusive)
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dayStart = new Date(d);
+        dayStart.setHours(startHour, startMin, 0, 0);
+
+        const dayEnd = new Date(d);
+        dayEnd.setHours(endHour, endMin, 0, 0);
+
+        for (let current = new Date(dayStart); current < dayEnd; current.setMinutes(current.getMinutes() + slotDuration)) {
+          slotsToCreate.push(new Date(current));
+        }
+      }
+    } else {
+      // Fallback to individual dates array
+      if (!dates || !Array.isArray(dates) || dates.length === 0) {
+        throw new BadRequestError('Dates array or range parameters are required');
+      }
+      for (const dateStr of dates) {
+        const dateTime = new Date(dateStr);
+        if (!isNaN(dateTime.getTime())) {
+          slotsToCreate.push(dateTime);
+        }
+      }
     }
 
     const createdSlots = [];
     const errors = [];
 
-    for (const dateStr of dates) {
-      const dateTime = new Date(dateStr);
-      
-      if (isNaN(dateTime.getTime())) {
-        errors.push({ date: dateStr, error: 'Invalid date format' });
-        continue;
-      }
-
+    for (const dateTime of slotsToCreate) {
       if (dateTime < new Date()) {
-        errors.push({ date: dateStr, error: 'Cannot create slots in the past' });
+        errors.push({ date: dateTime.toISOString(), error: 'Cannot create slots in the past' });
         continue;
       }
 
@@ -40,16 +73,16 @@ export const createSlots = async (req: AuthenticatedRequest, res: Response, next
         const slot = new Slot({
           doctorId,
           dateTime,
-          duration,
+          duration: slotDuration,
           isBooked: false
         });
         await slot.save();
         createdSlots.push(slot);
       } catch (err: any) {
         if (err.code === 11000) {
-          errors.push({ date: dateStr, error: 'Slot already exists for this date and time' });
+          errors.push({ date: dateTime.toISOString(), error: 'Slot already exists for this date and time' });
         } else {
-          errors.push({ date: dateStr, error: err.message });
+          errors.push({ date: dateTime.toISOString(), error: err.message });
         }
       }
     }
@@ -60,7 +93,7 @@ export const createSlots = async (req: AuthenticatedRequest, res: Response, next
       resource: 'Slot',
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-      details: { countRequested: dates.length, countCreated: createdSlots.length }
+      details: { countRequested: slotsToCreate.length, countCreated: createdSlots.length, type: type || 'individual' }
     });
 
     res.status(201).json({
@@ -337,11 +370,11 @@ export const cancelAppointment = async (req: AuthenticatedRequest, res: Response
 export const updateAppointmentStatus = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'Confirmed' | 'Completed'
+    const { status } = req.body; // 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled'
     const userId = req.user!.id;
 
-    if (!['Confirmed', 'Completed'].includes(status)) {
-      throw new BadRequestError('Invalid status update. Only Confirmed and Completed are allowed.');
+    if (!['Confirmed', 'Completed', 'Cancelled', 'Rescheduled'].includes(status)) {
+      throw new BadRequestError('Invalid status update. Only Confirmed, Completed, Cancelled, and Rescheduled are allowed.');
     }
 
     const appointment = await Appointment.findById(id);
@@ -350,12 +383,18 @@ export const updateAppointmentStatus = async (req: AuthenticatedRequest, res: Re
     }
 
     // Only assigned doctor or Admin
-    if (req.user!.role !== 'Admin' && appointment.doctorId.toString() !== userId) {
+    if (req.user!.role !== 'Admin' && req.user!.role !== 'SuperAdmin' && appointment.doctorId.toString() !== userId) {
       throw new ForbiddenError('You are not authorized to manage this appointment');
     }
 
+    const oldStatus = appointment.status;
     appointment.status = status;
     await appointment.save();
+
+    // Release slot if cancelled
+    if (status === 'Cancelled' && appointment.slotId) {
+      await Slot.findByIdAndUpdate(appointment.slotId, { isBooked: false });
+    }
 
     // Audit log
     await createAuditLog({
@@ -368,11 +407,24 @@ export const updateAppointmentStatus = async (req: AuthenticatedRequest, res: Re
     });
 
     // Notify patient
+    const doctor = await User.findById(appointment.doctorId);
+    const doctorName = doctor?.name || 'Doctor';
+    
+    let notifMessage = `Your appointment on ${appointment.dateTime.toLocaleString()} has been marked as ${status.toLowerCase()}`;
+    let notifType: 'ScheduleUpdated' | 'AppointmentCancelled' | 'SystemAlert' = 'ScheduleUpdated';
+
+    if (status === 'Confirmed') {
+      notifMessage = `Your appointment with Dr. ${doctorName} has been confirmed. You can chat now with doctor "${doctorName}".`;
+      notifType = 'SystemAlert';
+    } else if (status === 'Cancelled') {
+      notifType = 'AppointmentCancelled';
+    }
+
     await createNotification({
       recipientId: appointment.patientId.toString(),
       title: `Appointment ${status}`,
-      message: `Your appointment on ${appointment.dateTime.toLocaleString()} has been marked as ${status.toLowerCase()}`,
-      type: 'ScheduleUpdated'
+      message: notifMessage,
+      type: notifType
     });
 
     res.status(200).json({
@@ -442,10 +494,79 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response, 
  */
 export const getDoctors = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const doctors = await User.find({ role: 'Doctor' }).select('name email doctorProfile');
+    const doctors = await User.find({ role: 'Doctor', isActive: true }).select('name email doctorProfile');
     res.status(200).json({
       success: true,
       doctors
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDoctorPatients = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const doctorId = req.user!.id;
+    const search = req.query.search as string;
+
+    // 1. Find all appointments for this doctor
+    const appointments = await Appointment.find({ doctorId })
+      .populate('patientId', 'name email');
+
+    // 2. Extract unique patients
+    const patientMap = new Map<string, any>();
+    
+    for (const appt of appointments) {
+      const patient = appt.patientId as any;
+      if (patient && !patientMap.has(patient._id.toString())) {
+        patientMap.set(patient._id.toString(), {
+          id: patient._id,
+          name: patient.name,
+          email: patient.email,
+          lastVisit: appt.dateTime,
+          lastStatus: appt.status
+        });
+      } else if (patient) {
+        const pData = patientMap.get(patient._id.toString());
+        if (appt.dateTime > pData.lastVisit) {
+          pData.lastVisit = appt.dateTime;
+          pData.lastStatus = appt.status;
+        }
+      }
+    }
+
+    let patientsList = Array.from(patientMap.values());
+
+    // 3. Filter patients list by search text
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      patientsList = patientsList.filter(p => regex.test(p.name) || regex.test(p.email));
+    }
+
+    // 4. For each patient, retrieve their prescription history
+    const { Prescription } = await import('../models/Prescription.js');
+    const populatedPatients = await Promise.all(patientsList.map(async (p) => {
+      const prescriptions = await Prescription.find({ patientId: p.id, doctorId })
+        .sort({ createdAt: -1 });
+        
+      return {
+        ...p,
+        prescriptions
+      };
+    }));
+
+    // Audit record access
+    await createAuditLog({
+      userId: doctorId,
+      action: 'DOCTOR_VIEW_PATIENT_LIST',
+      resource: 'Patient',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    res.status(200).json({
+      success: true,
+      patients: populatedPatients
     });
   } catch (error) {
     next(error);

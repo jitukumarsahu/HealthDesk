@@ -53,6 +53,17 @@ export const initSocket = (server: HttpServer): Server => {
     userSockets.push(socket.id);
     activeUsers.set(userId, userSockets);
 
+    socket.on('send_message', (data: { receiverId: string; appointmentId: string; text: string }) => {
+      const messageData = {
+        senderId: userId,
+        receiverId: data.receiverId,
+        appointmentId: data.appointmentId,
+        text: data.text,
+        createdAt: new Date()
+      };
+      emitToUser(data.receiverId, 'message', messageData);
+    });
+
     socket.on('disconnect', () => {
       logger.info(`User disconnected from socket: ${user.email}, Socket ID: ${socket.id}`);
       

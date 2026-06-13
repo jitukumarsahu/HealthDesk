@@ -4,7 +4,7 @@ export interface UserState {
   id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Doctor' | 'Patient';
+  role: 'SuperAdmin' | 'Admin' | 'Doctor' | 'Patient';
   doctorProfile?: {
     specialization: string;
     biography?: string;

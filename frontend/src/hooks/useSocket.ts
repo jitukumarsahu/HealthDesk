@@ -58,6 +58,12 @@ export const useSocket = () => {
       window.dispatchEvent(event);
     });
 
+    // Listen for real-time chat messages
+    socket.on('message', (message) => {
+      const event = new CustomEvent('app-chat-message', { detail: message });
+      window.dispatchEvent(event);
+    });
+
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error.message);
     });

@@ -6,10 +6,19 @@ import { loginSuccess, logout } from '../redux/slices/authSlice';
 import { useSocket } from '../hooks/useSocket';
 import { api } from '../services/api';
 import Link from 'next/link';
-import { LogOut, Bell, Shield, Calendar, FileText, Activity, Moon, Sun, Menu, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { LogOut, Bell, Shield, Calendar, FileText, Activity, Moon, Sun, Menu, X, MessageSquare } from 'lucide-react';
+import { 
+  fetchNotificationsStart, 
+  fetchNotificationsSuccess, 
+  fetchNotificationsFailure, 
+  markAllRead, 
+  markRead 
+} from '../redux/slices/notificationSlice';
 
 export function ClientWrapper({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
+  const pathname = usePathname();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const { unreadCount, notifications } = useAppSelector((state) => state.notifications);
   
@@ -26,6 +35,62 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
 
   // Initialize socket
   useSocket();
+
+  // Helper to check if a navigation link is active
+  const isLinkActive = (path: string) => {
+    if (path === '/') {
+      return pathname === '/';
+    }
+    return pathname.startsWith(path);
+  };
+
+  // Fetch notifications when user is authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const getNotificationsList = async () => {
+      dispatch(fetchNotificationsStart());
+      try {
+         const response = await api.get('/notifications');
+         dispatch(
+           fetchNotificationsSuccess({
+             notifications: response.data.notifications.map((n: any) => ({
+               id: n._id || n.id,
+               title: n.title,
+               message: n.message,
+               type: n.type,
+               isRead: n.isRead,
+               createdAt: n.createdAt,
+             })),
+             unreadCount: response.data.unreadCount,
+           })
+         );
+      } catch (err: any) {
+        console.error('Failed to fetch notifications:', err);
+        dispatch(fetchNotificationsFailure(err.response?.data?.error || err.message || 'Failed to load notifications'));
+      }
+    };
+
+    getNotificationsList();
+  }, [isAuthenticated, dispatch]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      dispatch(markAllRead());
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      dispatch(markRead(id));
+    } catch (err) {
+      console.error(`Failed to mark notification ${id} as read:`, err);
+    }
+  };
 
   // Handle dark mode toggle
   useEffect(() => {
@@ -156,38 +221,71 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
 
               {/* Desktop Nav Items */}
               <div className="hidden md:flex items-center gap-6">
-                <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
+                <Link 
+                  href="/" 
+                  className={`text-sm font-medium transition-colors ${isLinkActive('/') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                >
                   Dashboard
                 </Link>
 
                 {user.role === 'Patient' && (
                   <>
-                    <Link href="/appointments/book" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/appointments/book" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/appointments/book') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <Calendar className="h-4 w-4" /> Book Appointment
                     </Link>
-                    <Link href="/prescriptions" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/prescriptions" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <FileText className="h-4 w-4" /> Prescriptions
+                    </Link>
+                    <Link 
+                      href="/chat" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
+                      <MessageSquare className="h-4 w-4" /> Chat
                     </Link>
                   </>
                 )}
 
                 {user.role === 'Doctor' && (
                   <>
-                    <Link href="/doctor/schedule" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/doctor/schedule" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/doctor/schedule') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <Calendar className="h-4 w-4" /> Manage Slots
                     </Link>
-                    <Link href="/prescriptions" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/prescriptions" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <FileText className="h-4 w-4" /> Create Prescription
+                    </Link>
+                    <Link 
+                      href="/chat" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
+                      <MessageSquare className="h-4 w-4" /> Chat
                     </Link>
                   </>
                 )}
 
-                {user.role === 'Admin' && (
+                {(user.role === 'Admin' || user.role === 'SuperAdmin') && (
                   <>
-                    <Link href="/admin/users" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/admin/users" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/admin/users') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <Shield className="h-4 w-4" /> Accounts
                     </Link>
-                    <Link href="/admin/audit" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+                    <Link 
+                      href="/admin/audit" 
+                      className={`text-sm font-medium transition-colors flex items-center gap-1 ${isLinkActive('/admin/audit') ? 'text-primary' : 'text-slate-600 hover:text-primary dark:text-slate-350 dark:hover:text-white'}`}
+                    >
                       <Shield className="h-4 w-4" /> Audit Trails
                     </Link>
                   </>
@@ -212,7 +310,7 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                   >
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white animate-pulse">
                         {unreadCount}
                       </span>
                     )}
@@ -223,15 +321,24 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
                     <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
                       <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 dark:border-slate-800">
                         <span className="font-semibold text-sm">Notifications</span>
-                        <span className="text-xs text-primary cursor-pointer hover:underline">Mark all read</span>
+                        <span onClick={handleMarkAllRead} className="text-xs text-primary cursor-pointer hover:underline">
+                          Mark all read
+                        </span>
                       </div>
-                      <div className="max-h-64 overflow-y-auto mt-2">
+                      <div className="max-h-64 overflow-y-auto mt-2 flex flex-col gap-1">
                         {notifications.length === 0 ? (
                           <div className="text-center py-6 text-xs text-slate-400">No new notifications</div>
                         ) : (
                           notifications.slice(0, 5).map((notif) => (
-                            <div key={notif.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors">
-                              <h5 className="font-semibold text-xs text-slate-800 dark:text-slate-200">{notif.title}</h5>
+                            <div 
+                              key={notif.id} 
+                              onClick={() => handleMarkRead(notif.id)}
+                              className={`p-3 rounded-lg cursor-pointer transition-colors ${notif.isRead ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'}`}
+                            >
+                              <div className="flex items-start justify-between gap-1">
+                                <h5 className="font-semibold text-xs text-slate-800 dark:text-slate-200">{notif.title}</h5>
+                                {!notif.isRead && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1 shrink-0"></span>}
+                              </div>
                               <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">{notif.message}</p>
                             </div>
                           ))
@@ -280,35 +387,77 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
           {/* Mobile Nav Menu */}
           {mobileMenuOpen && (
             <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-850 dark:bg-slate-900 md:hidden flex flex-col gap-3">
-              <Link href="/" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+              <Link 
+                href="/" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className={`text-sm font-medium py-1 ${isLinkActive('/') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+              >
                 Dashboard
               </Link>
               {user.role === 'Patient' && (
                 <>
-                  <Link href="/appointments/book" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/appointments/book" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/appointments/book') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Book Appointment
                   </Link>
-                  <Link href="/prescriptions" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/prescriptions" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Prescriptions
+                  </Link>
+                  <Link 
+                    href="/chat" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
+                    Chat
                   </Link>
                 </>
               )}
               {user.role === 'Doctor' && (
                 <>
-                  <Link href="/doctor/schedule" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/doctor/schedule" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/doctor/schedule') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Manage Slots
                   </Link>
-                  <Link href="/prescriptions" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/prescriptions" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/prescriptions') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Create Prescription
+                  </Link>
+                  <Link 
+                    href="/chat" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/chat') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
+                    Chat
                   </Link>
                 </>
               )}
-              {user.role === 'Admin' && (
+              {(user.role === 'Admin' || user.role === 'SuperAdmin') && (
                 <>
-                  <Link href="/admin/users" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/admin/users" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/admin/users') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Accounts management
                   </Link>
-                  <Link href="/admin/audit" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium py-1">
+                  <Link 
+                    href="/admin/audit" 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className={`text-sm font-medium py-1 ${isLinkActive('/admin/audit') ? 'text-primary' : 'text-slate-600 dark:text-slate-350'}`}
+                  >
                     Audit Trails
                   </Link>
                 </>

@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { BadRequestError } from '../utils/errors.js';
+import { BadRequestError, NotFoundError } from '../utils/errors.js';
 import { createAuditLog } from '../services/auditService.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -146,6 +146,140 @@ export const getAuditLogs = async (req: AuthenticatedRequest, res: Response, nex
         limit,
         total,
         pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDoctors = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const query: any = { role: 'Doctor' };
+
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search as string, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { 'doctorProfile.specialization': searchRegex }
+      ];
+    }
+
+    if (req.query.isActive) {
+      query.isActive = req.query.isActive === 'true';
+    }
+
+    const doctors = await User.find(query)
+      .select('-passwordHash -refreshToken')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      doctors,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPatients = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const query: any = { role: 'Patient' };
+
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search as string, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex }
+      ];
+    }
+
+    if (req.query.isActive) {
+      query.isActive = req.query.isActive === 'true';
+    }
+
+    const patients = await User.find(query)
+      .select('-passwordHash -refreshToken')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      patients,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleUserActive = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user!.id;
+
+    if (id === adminId) {
+      throw new BadRequestError('You cannot deactivate your own account');
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    if (user.role === 'SuperAdmin') {
+      throw new BadRequestError('SuperAdmin accounts cannot be deactivated');
+    }
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    await createAuditLog({
+      userId: adminId,
+      action: `ADMIN_TOGGLE_USER_ACTIVE_${user.isActive ? 'ACTIVATE' : 'DEACTIVATE'}`,
+      resource: 'User',
+      resourceId: user._id.toString(),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { targetEmail: user.email, isActive: user.isActive }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `User account has been successfully ${user.isActive ? 'activated' : 'deactivated'}`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
       }
     });
   } catch (error) {

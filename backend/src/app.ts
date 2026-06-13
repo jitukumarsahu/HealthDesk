@@ -10,6 +10,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import prescriptionRoutes from './routes/prescriptionRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 
 import { errorHandler } from './middleware/error.js';
 import { NotFoundError } from './utils/errors.js';
@@ -55,6 +56,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

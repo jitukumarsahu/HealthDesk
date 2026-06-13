@@ -6,7 +6,7 @@ export interface IAppointment extends Document {
   slotId?: mongoose.Types.ObjectId;
   dateTime: Date;
   duration: number; // in minutes
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled';
   reason: string;
   notes?: string;
   createdAt: Date;
@@ -44,7 +44,7 @@ const AppointmentSchema: Schema = new Schema(
     },
     status: { 
       type: String, 
-      enum: ['Pending', 'Confirmed', 'Cancelled', 'Completed'], 
+      enum: ['Pending', 'Confirmed', 'Cancelled', 'Completed', 'Rescheduled'], 
       required: true,
       default: 'Pending'
     },

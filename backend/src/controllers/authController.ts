@@ -42,28 +42,43 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       throw new BadRequestError('Email is already registered');
     }
 
-    // Role safety: normal registration only allows 'Patient'.
-    // Admin can create Doctors or other Admins through Admin management endpoints.
-    // If it is the first user in the database, let's allow it to be Admin for easier testing.
-    let userRole = 'Patient';
+    // Role safety: normal registration allows Patient and Doctor.
+    // If it is the first user in the database, let's allow it to be SuperAdmin for easier setup.
+    let userRole = role || 'Patient';
     const userCount = await User.countDocuments();
     if (userCount === 0) {
-      userRole = 'Admin';
-    } else if (role === 'Doctor' || role === 'Admin') {
-      // Normal registration requests cannot create Admin/Doctor directly
-      throw new BadRequestError('Unauthorized role selection. Doctor/Admin accounts must be created by an Admin.');
+      userRole = 'SuperAdmin';
+    } else if (userRole === 'Admin' || userRole === 'SuperAdmin') {
+      throw new BadRequestError('Admin/SuperAdmin accounts must be created by an Admin.');
+    }
+
+    if (!['Doctor', 'Patient', 'Admin', 'SuperAdmin'].includes(userRole)) {
+      throw new BadRequestError('Invalid role specified');
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const user = new User({
+    const userFields: any = {
       name,
       email,
       passwordHash,
       role: userRole,
-    });
+      isActive: true
+    };
 
+    if (userRole === 'Doctor') {
+      if (!specialization) {
+        throw new BadRequestError('Specialization is required for Doctor accounts');
+      }
+      userFields.doctorProfile = {
+        specialization,
+        biography,
+        experienceYears: experienceYears ? parseInt(experienceYears) : undefined
+      };
+    }
+
+    const user = new User(userFields);
     await user.save();
 
     await createAuditLog({
@@ -112,6 +127,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       throw new UnauthorizedError('Invalid credentials');
     }
 
+    if (user.isActive === false) {
+      throw new UnauthorizedError('Your account has been deactivated. Please contact support.');
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       // Audit failed login attempt (wrong password)
@@ -145,8 +164,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     // Set refresh token in HttpOnly cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+      sameSite: 'lax',
       maxAge: REFRESH_TOKEN_COOKIE_MAX_AGE,
     });
 
@@ -187,14 +206,18 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
       throw new UnauthorizedError('Token mismatch or user revoked');
     }
 
+    if (user.isActive === false) {
+      throw new UnauthorizedError('Your account has been deactivated. Please contact support.');
+    }
+
     const tokens = generateTokens(user);
     user.refreshToken = tokens.refreshToken;
     await user.save();
 
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+      sameSite: 'lax',
       maxAge: REFRESH_TOKEN_COOKIE_MAX_AGE,
     });
 
@@ -229,8 +252,8 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
 
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+      sameSite: 'lax',
     });
 
     res.status(200).json({

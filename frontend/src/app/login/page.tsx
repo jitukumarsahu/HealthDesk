@@ -18,7 +18,11 @@ export default function LoginPage() {
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: 'Patient',
+    specialization: '',
+    biography: '',
+    experienceYears: ''
   });
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -29,7 +33,9 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setValidationError(null);
   };
@@ -53,6 +59,11 @@ export default function LoginPage() {
     if (isRegister && formData.password !== formData.confirmPassword) {
       return 'Passwords do not match';
     }
+    if (isRegister && formData.role === 'Doctor') {
+      if (!formData.specialization.trim()) {
+        return 'Specialization is required for Doctor accounts';
+      }
+    }
     return null;
   };
 
@@ -68,12 +79,21 @@ export default function LoginPage() {
 
     try {
       if (isRegister) {
-        // Register patient
-        await api.post('/auth/register', {
+        // Register patient or doctor
+        const registrationData: any = {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-        });
+          role: formData.role
+        };
+
+        if (formData.role === 'Doctor') {
+          registrationData.specialization = formData.specialization;
+          registrationData.biography = formData.biography;
+          registrationData.experienceYears = formData.experienceYears;
+        }
+
+        await api.post('/auth/register', registrationData);
         
         // Log in automatically after registration
         const loginRes = await api.post('/auth/login', {
@@ -114,7 +134,7 @@ export default function LoginPage() {
             {isRegister ? 'Create your account' : 'Sign in to HealthDesk'}
           </h2>
           <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
-            {isRegister ? 'Patient registration portal. Doctors and admins must request credentials.' : 'Secure clinical management workspace'}
+            {isRegister ? 'Choose your role to get started.' : 'Secure clinical management workspace'}
           </p>
         </div>
 
@@ -130,21 +150,39 @@ export default function LoginPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             {isRegister && (
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                  <User className="h-4 w-4" />
+              <>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border border-slate-300 py-3 pl-10 pr-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900"
+                    placeholder="Full name"
+                  />
                 </div>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="block w-full rounded-lg border border-slate-300 py-3 pl-10 pr-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900"
-                  placeholder="Full name"
-                />
-              </div>
+
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <BriefcaseMedical className="h-4 w-4" />
+                  </div>
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border border-slate-300 bg-white py-3 pl-10 pr-3 text-sm text-slate-700 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <option value="Patient">Register as Patient</option>
+                    <option value="Doctor">Register as Doctor</option>
+                  </select>
+                </div>
+              </>
             )}
 
             <div className="relative">
@@ -163,6 +201,46 @@ export default function LoginPage() {
                 placeholder="Email address"
               />
             </div>
+
+            {isRegister && formData.role === 'Doctor' && (
+              <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800 animate-fadeIn">
+                <div className="relative">
+                  <input
+                    id="specialization"
+                    name="specialization"
+                    type="text"
+                    required
+                    value={formData.specialization}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border border-slate-300 py-3 px-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900"
+                    placeholder="Medical Specialization (e.g. Cardiologist)*"
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    id="experienceYears"
+                    name="experienceYears"
+                    type="number"
+                    min="0"
+                    value={formData.experienceYears}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border border-slate-300 py-3 px-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900"
+                    placeholder="Years of Experience"
+                  />
+                </div>
+                <div className="relative">
+                  <textarea
+                    id="biography"
+                    name="biography"
+                    rows={3}
+                    value={formData.biography}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border border-slate-300 py-3 px-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-900"
+                    placeholder="Brief professional biography (optional)"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -226,7 +304,7 @@ export default function LoginPage() {
             }}
             className="text-primary font-semibold hover:underline"
           >
-            {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register as Patient"}
+            {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
           </button>
         </div>
       </div>

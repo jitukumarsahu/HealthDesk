@@ -33,11 +33,11 @@ describe('Authentication Flow', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.user).toHaveProperty('id');
     expect(res.body.user.email).toBe(testUser.email);
-    expect(res.body.user.role).toBe('Admin'); // First registered user becomes Admin automatically
+    expect(res.body.user.role).toBe('SuperAdmin'); // First registered user becomes SuperAdmin automatically
 
     const dbUser = await User.findOne({ email: testUser.email });
     expect(dbUser).toBeDefined();
-    expect(dbUser?.role).toBe('Admin');
+    expect(dbUser?.role).toBe('SuperAdmin');
   });
 
   it('should register subsequent users as Patients', async () => {
