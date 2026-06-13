@@ -33,7 +33,7 @@
         },
         {
           "name": "CORS_ORIGIN",
-          "value": "http://localhost:3000"
+          "value": "http://healthdesk-alb-1281813214.ap-south-1.elb.amazonaws.com"
         }
       ],
       "secrets": [
@@ -79,11 +79,11 @@
         },
         {
           "name": "NEXT_PUBLIC_API_URL",
-          "value": "http://localhost:5000/api"
+          "value": "http://healthdesk-alb-1281813214.ap-south-1.elb.amazonaws.com/api"
         },
         {
           "name": "NEXT_PUBLIC_SOCKET_URL",
-          "value": "http://localhost:5000"
+          "value": "http://healthdesk-alb-1281813214.ap-south-1.elb.amazonaws.com"
         }
       ],
       "logConfiguration": {
