@@ -58,7 +58,14 @@ function DoctorSchedulePageContent() {
     try {
       setSlotsLoading(true);
       if (user?.id) {
-        const res = await api.get(`/appointments/slots/available/${user.id}`);
+        let url = `/appointments/slots/available/${user.id}`;
+        if (filterSlotDate) {
+          const nextDay = new Date(filterSlotDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const nextDayStr = nextDay.toISOString().split('T')[0];
+          url += `?startDate=${filterSlotDate}&endDate=${nextDayStr}`;
+        }
+        const res = await api.get(url);
         setExistingSlots(res.data.slots || []);
       }
     } catch (err) {
@@ -107,7 +114,7 @@ function DoctorSchedulePageContent() {
     } else if (activeTab === 'patients') {
       fetchDoctorPatients();
     }
-  }, [isAuthenticated, user, activeTab, router]);
+  }, [isAuthenticated, user, activeTab, router, filterSlotDate]);
 
   useEffect(() => {
     if (tabParam === 'slots' || tabParam === 'appointments' || tabParam === 'patients') {
