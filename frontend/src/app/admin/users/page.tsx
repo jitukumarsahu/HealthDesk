@@ -130,7 +130,7 @@ export default function AdminUsersPage() {
             <button
               onClick={() => setFormType('Admin')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-                formType === 'Admin' ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                formType === 'Admin' ? ' bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Administrator
