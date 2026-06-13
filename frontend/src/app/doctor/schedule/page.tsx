@@ -465,11 +465,12 @@ function DoctorSchedulePageContent() {
                 {(() => {
                   const filtered = existingSlots.filter((slot) => {
                     if (!filterSlotDate) return true;
-                    const slotDate = new Date(slot.dateTime).toLocaleDateString();
-                    const filterDateObj = new Date(filterSlotDate);
-                    // Standardize filter slot date check by formatting matching strings
-                    const selectedFilterStr = filterDateObj.toLocaleDateString();
-                    return slotDate === selectedFilterStr;
+                    const d = new Date(slot.dateTime);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const slotLocalDateStr = `${year}-${month}-${day}`;
+                    return slotLocalDateStr === filterSlotDate;
                   });
 
                   if (filtered.length === 0) {
@@ -566,8 +567,12 @@ function DoctorSchedulePageContent() {
                 ) : (() => {
                   const filtered = appointments.filter((appt) => {
                     if (filterDate) {
-                      const apptDateStr = new Date(appt.dateTime).toISOString().split('T')[0];
-                      if (apptDateStr !== filterDate) return false;
+                      const d = new Date(appt.dateTime);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      const apptLocalDateStr = `${year}-${month}-${day}`;
+                      if (apptLocalDateStr !== filterDate) return false;
                     }
                     if (filterStatus !== 'all') {
                       if (appt.status !== filterStatus) return false;

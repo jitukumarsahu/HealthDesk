@@ -37,6 +37,11 @@ export default function DashboardPage() {
   // Doctors directory search
   const [doctorsSearch, setDoctorsSearch] = useState('');
 
+  // Doctor appointments dashboard search and filters
+  const [apptSearch, setApptSearch] = useState('');
+  const [apptStatusFilter, setApptStatusFilter] = useState('all');
+  const [apptDateFilter, setApptDateFilter] = useState('');
+
   // Rescheduling modal states
   const [reschedulingAppt, setReschedulingAppt] = useState<any | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -122,6 +127,16 @@ export default function DashboardPage() {
       fetchDashboardData();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to cancel appointment' });
+    }
+  };
+
+  const handleUpdateStatus = async (appointmentId: string, status: string) => {
+    try {
+      const res = await api.patch(`/appointments/${appointmentId}/status`, { status });
+      setMessage({ type: 'success', text: res.data.message });
+      fetchDashboardData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to update status' });
     }
   };
 
@@ -480,44 +495,157 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
               <Calendar className="h-5 w-5 text-indigo-500" /> Active Schedule Bookings
             </h3>
-            {appointments.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">No scheduled appointments</div>
-            ) : (
-              <div className="space-y-4">
-                {appointments.slice(0, 5).map((appt) => (
-                  <div key={appt._id} className="premium-card bg-white/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center">
-                    <div className="flex gap-3 items-center">
-                      <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/30 p-2.5 text-indigo-500 shrink-0">
-                        <Clock className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400">Patient</p>
-                        <h4 className="text-sm font-bold mt-0.5">{appt.patientId?.name || 'Patient'}</h4>
-                        <p className="text-xs text-slate-500 mt-1 italic">Reason: "{appt.reason}"</p>
-                        <p className="text-2xs text-slate-400 mt-1">{new Date(appt.dateTime).toLocaleString()}</p>
+            {(() => {
+              const filtered = appointments.filter((appt) => {
+                if (apptSearch) {
+                  const term = apptSearch.toLowerCase();
+                  const patientName = appt.patientId?.name?.toLowerCase() || '';
+                  const reason = appt.reason?.toLowerCase() || '';
+                  if (!patientName.includes(term) && !reason.includes(term)) {
+                    return false;
+                  }
+                }
+                if (apptDateFilter) {
+                  const d = new Date(appt.dateTime);
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  const apptLocalDateStr = `${year}-${month}-${day}`;
+                  if (apptLocalDateStr !== apptDateFilter) return false;
+                }
+                if (apptStatusFilter !== 'all') {
+                  if (appt.status !== apptStatusFilter) return false;
+                }
+                return true;
+              });
+
+              return (
+                <>
+                  {/* Dashboard Active Bookings Filter Panel */}
+                  <div className="grid gap-4 md:grid-cols-3 mb-6 bg-slate-50/50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 block">Search Patient / Reason</label>
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Name or reason..."
+                          value={apptSearch}
+                          onChange={(e) => setApptSearch(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-800 dark:bg-slate-950 text-slate-850 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-2xs font-semibold ${
-                        appt.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400' :
-                        appt.status === 'Pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' :
-                        'bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-455'
-                      }`}>
-                        {appt.status}
-                      </span>
-                      {appt.status === 'Confirmed' && (
-                        <Link
-                          href="/chat"
-                          className="bg-primary hover:bg-emerald-600 text-white text-[10px] font-semibold px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 block">Filter by Date</label>
+                      <input
+                        type="date"
+                        value={apptDateFilter}
+                        onChange={(e) => setApptDateFilter(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-950 text-slate-850 dark:text-slate-100"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 block">Filter by Status</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={apptStatusFilter}
+                          onChange={(e) => setApptStatusFilter(e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 py-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-800 dark:bg-slate-950 text-slate-700 dark:text-slate-300"
                         >
-                          <MessageSquare className="h-3 w-3" /> Chat
-                        </Link>
-                      )}
+                          <option value="all">All Statuses</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="Rescheduled">Rescheduled</option>
+                        </select>
+                        {(apptSearch || apptDateFilter || apptStatusFilter !== 'all') && (
+                          <button
+                            type="button"
+                            onClick={() => { setApptSearch(''); setApptDateFilter(''); setApptStatusFilter('all'); }}
+                            className="text-xs text-rose-500 font-semibold hover:underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  {filtered.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-slate-450 italic">
+                      {appointments.length === 0 ? 'No scheduled appointments' : 'No appointments match your filters'}
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                      {filtered.map((appt) => (
+                        <div key={appt._id} className="premium-card bg-white/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                          <div className="flex gap-3 items-center">
+                            <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/30 p-2.5 text-indigo-500 shrink-0">
+                              <Clock className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-slate-400">Patient</p>
+                              <h4 className="text-sm font-bold mt-0.5">{appt.patientId?.name || 'Patient'}</h4>
+                              <p className="text-xs text-slate-500 mt-1 italic">Reason: "{appt.reason}"</p>
+                              <p className="text-2xs text-slate-400 mt-1">{new Date(appt.dateTime).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
+                            <span className={`rounded-full px-2 py-0.5 text-2xs font-semibold ${
+                              appt.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-450' :
+                              appt.status === 'Pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' :
+                              appt.status === 'Completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-455' :
+                              'bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-455'
+                            }`}>
+                              {appt.status}
+                            </span>
+                            
+                            {appt.status === 'Pending' && (
+                              <button
+                                onClick={() => handleUpdateStatus(appt._id, 'Confirmed')}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                              >
+                                Confirm
+                              </button>
+                            )}
+                            
+                            {appt.status === 'Confirmed' && (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateStatus(appt._id, 'Completed')}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                                >
+                                  Complete
+                                </button>
+                                <Link
+                                  href="/chat"
+                                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-[10px] font-semibold px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors"
+                                >
+                                  <MessageSquare className="h-3 w-3" /> Chat
+                                </Link>
+                              </>
+                            )}
+                            
+                            {appt.status !== 'Completed' && appt.status !== 'Cancelled' && (
+                              <button
+                                onClick={() => handleUpdateStatus(appt._id, 'Cancelled')}
+                                className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
