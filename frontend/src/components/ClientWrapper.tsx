@@ -149,6 +149,11 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
       const customEvent = e as CustomEvent;
       const notification = customEvent.detail;
       
+      // Suppress message toasts if the user is already on the chat page
+      if (pathname === '/chat' && notification?.type === 'NewMessage') {
+        return;
+      }
+      
       setToast({
         title: notification.title,
         message: notification.message,
@@ -165,7 +170,7 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('app-notification', handleNotification);
     };
-  }, []);
+  }, [pathname]);
 
   // Close notifications on click outside
   useEffect(() => {
@@ -190,6 +195,17 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
     
     if (notif.type === 'NewMessage') {
       router.push('/chat');
+      return;
+    }
+
+    if (notif.title === 'Appointment Confirmed') {
+      if (typeof window !== 'undefined') {
+        if (window.location.pathname === '/' || window.location.pathname === '/chat') {
+          window.location.reload();
+        } else {
+          window.location.href = '/';
+        }
+      }
       return;
     }
     
