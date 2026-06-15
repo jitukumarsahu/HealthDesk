@@ -1,9 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { Message } from '../models/Message.js';
 import { Appointment } from '../models/Appointment.js';
+import { User } from '../models/User.js';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../utils/errors.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { emitToUser } from '../config/socket.js';
+import { createNotification } from '../services/notificationService.js';
 
 export const sendMessage = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -41,6 +43,18 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response, next
     });
 
     await message.save();
+
+    // Fetch sender details to personalise notification
+    const sender = await User.findById(senderId);
+    const senderName = sender ? sender.name : 'Someone';
+
+    // Trigger persistent and real-time notification
+    await createNotification({
+      recipientId: receiverId,
+      title: `New Message from ${senderName}`,
+      message: text.length > 60 ? `${text.substring(0, 60)}...` : text,
+      type: 'NewMessage'
+    });
 
     // Emit real-time message event via Socket.io
     emitToUser(receiverId, 'message', message);

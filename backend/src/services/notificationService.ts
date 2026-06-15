@@ -6,7 +6,7 @@ interface CreateNotificationParams {
   recipientId: string;
   title: string;
   message: string;
-  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert';
+  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert' | 'NewMessage';
 }
 
 export const createNotification = async (params: CreateNotificationParams): Promise<void> => {

@@ -188,6 +188,11 @@ export function ClientWrapper({ children }: { children: React.ReactNode }) {
     setShowNotifications(false);
     setMobileMenuOpen(false);
     
+    if (notif.type === 'NewMessage') {
+      router.push('/chat');
+      return;
+    }
+    
     if (user?.role === 'Doctor') {
       if (notif.type === 'AppointmentBooked' || notif.type === 'AppointmentCancelled') {
         router.push('/doctor/schedule?tab=appointments');

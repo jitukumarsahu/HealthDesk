@@ -4,7 +4,7 @@ export interface INotification extends Document {
   recipientId: mongoose.Types.ObjectId;
   title: string;
   message: string;
-  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert';
+  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert' | 'NewMessage';
   isRead: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,7 +30,7 @@ const NotificationSchema: Schema = new Schema(
     },
     type: { 
       type: String, 
-      enum: ['AppointmentBooked', 'AppointmentCancelled', 'ScheduleUpdated', 'PrescriptionCreated', 'SystemAlert'], 
+      enum: ['AppointmentBooked', 'AppointmentCancelled', 'ScheduleUpdated', 'PrescriptionCreated', 'SystemAlert', 'NewMessage'], 
       required: true 
     },
     isRead: { 

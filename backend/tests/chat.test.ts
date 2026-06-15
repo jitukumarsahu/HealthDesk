@@ -5,6 +5,7 @@ import { User } from '../src/models/User.js';
 import { Slot } from '../src/models/Slot.js';
 import { Appointment } from '../src/models/Appointment.js';
 import { Message } from '../src/models/Message.js';
+import { Notification } from '../src/models/Notification.js';
 import { connectTestDB, closeTestDB } from './db.js';
 
 let adminToken: string;
@@ -129,6 +130,12 @@ describe('Secure Workspace Chat System', () => {
     expect(res1.statusCode).toBe(201);
     expect(res1.body.success).toBe(true);
     expect(res1.body.data.text).toBe('Hello doctor, this is a test message.');
+
+    // 2.5 Verify notification was generated for the doctor
+    const chatNotification = await Notification.findOne({ recipientId: doctorId, type: 'NewMessage' });
+    expect(chatNotification).toBeTruthy();
+    expect(chatNotification!.title).toBe('New Message from Patient One');
+    expect(chatNotification!.message).toBe('Hello doctor, this is a test message.');
 
     // 3. Get history as Doctor
     const res2 = await request(app)

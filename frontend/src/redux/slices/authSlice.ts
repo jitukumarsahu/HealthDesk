@@ -36,10 +36,14 @@ const authSlice = createSlice({
       state.loading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: UserState; accessToken: string }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: any; accessToken: string }>) => {
       state.loading = false;
       state.isAuthenticated = true;
-      state.user = action.payload.user;
+      const rawUser = action.payload.user;
+      state.user = rawUser ? {
+        ...rawUser,
+        id: rawUser.id || rawUser._id,
+      } : null;
       state.accessToken = action.payload.accessToken;
       state.error = null;
     },
@@ -61,8 +65,12 @@ const authSlice = createSlice({
       state.accessToken = action.payload;
       state.isAuthenticated = true;
     },
-    updateUser: (state, action: PayloadAction<UserState>) => {
-      state.user = action.payload;
+    updateUser: (state, action: PayloadAction<any>) => {
+      const rawUser = action.payload;
+      state.user = rawUser ? {
+        ...rawUser,
+        id: rawUser.id || rawUser._id,
+      } : null;
     }
   },
 });

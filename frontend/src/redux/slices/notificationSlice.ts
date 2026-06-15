@@ -4,7 +4,7 @@ export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert';
+  type: 'AppointmentBooked' | 'AppointmentCancelled' | 'ScheduleUpdated' | 'PrescriptionCreated' | 'SystemAlert' | 'NewMessage';
   isRead: boolean;
   createdAt: string;
 }
